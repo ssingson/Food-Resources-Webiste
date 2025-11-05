@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Food Pantries & Community Fridges Map</title>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <style>
+    :root { --bg:#0b1020; --panel:#11172a; --muted:#9aa4b2; --text:#f3f6fb; --accent:#4f8cff; }
+    html, body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text); background: var(--bg); }
+    .app { display: grid; grid-template-columns: 360px 1fr; grid-template-rows: auto auto 600px; }
+    header { grid-column: 1 / -1; display:flex; align-items:center; justify-content:center; gap:12px; padding: 24px 16px; background: linear-gradient(180deg, rgba(79,140,255,.12), transparent); border-bottom: 1px solid rgba(255,255,255,.06); position: relative; }
+    header h1 { font-size: 28px; margin: 0; letter-spacing: .2px; text-align: center; }
+    header .description { font-size: 16px; color: var(--text); line-height: 1.5; max-width: 900px; margin: 16px auto 0; text-align: left; }
+    header .description a { color: var(--accent); text-decoration: none; }
+    header .description a:hover { text-decoration: underline; }
+    header .badge { font-size: 12px; color: var(--muted); }
+    #sidebar { background: var(--panel); border-right: 1px solid rgba(255,255,255,.06); padding: 14px; overflow: auto; grid-row: 2; }
+    #map { width: 100%; height: 600px; grid-column: 1 / -1; grid-row: 3; }
+    .control { display:flex; align-items:center; gap:8px; margin: 8px 0; }
+    .control input, .control select, .control button { padding: 10px 12px; border: 1px solid rgba(255,255,255,.12); background: #0d1426; color: var(--text); border-radius: 10px; outline: none; }
+    .control input{ flex:1; }
+    .control button { cursor:pointer; white-space: nowrap; }
+    .control input::placeholder { color: #95a1b3; }
+    .hint { color: var(--muted); font-size: 12px; margin: 6px 2px 10px; line-height: 1.35; }
+    .stat { display:flex; justify-content: space-between; font-size: 13px; padding: 8px 10px; background: #0d1426; border: 1px solid rgba(255,255,255,.06); border-radius: 10px; margin-top: 8px; }
+    .legend { display:flex; gap:8px; flex-wrap: wrap; margin-top: 8px; }
+    .tag { font-size: 14px; background: #0d1426; border: 1px solid rgba(255,255,255,.2); padding: 8px 12px; border-radius: 999px; color: var(--text); cursor: pointer; user-select:none; font-weight: 400; }
+    .tag.active { background: var(--accent); border-color: var(--accent); color: white; }
+    .src { font-size: 12px; color: var(--muted); margin-top: 10px; }
+    .src a { color: var(--accent); text-decoration: none; }
+    .popup { font-size: 14px; line-height: 1.35; }
+    .popup h3 { font-size: 16px; margin: 0 0 6px; }
+    .popup .row { margin: 4px 0; }
+    .popup a { color: var(--accent); text-decoration: none; }
+    .foot { font-size: 11px; color: var(--muted); margin-top: 8px; }
+    .location-dropdown { position: absolute; background: #0d1426; border: 1px solid rgba(255,255,255,.12); border-radius: 10px; margin-top: 2px; width: calc(100% - 28px); z-index: 1000; display: none; top: 100%; left: 0; }
+    .location-option { padding: 10px 12px; cursor: pointer; font-size: 14px; color: var(--text); border-radius: 10px; }
+    .location-option:hover { background: rgba(79,140,255,.1); }
+    .location-option:before { content: '📍 '; margin-right: 6px; }
+    @media (max-width: 900px) { 
+      .app { grid-template-columns: 1fr; grid-template-rows: auto auto 500px; } 
+      #sidebar { grid-row: 2; grid-column: 1; } 
+      #map { grid-row: 3; grid-column: 1; height: 500px; } 
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header>
+      <div style="width: 100%;">
+        <h1>Food Pantries and Community Fridges Near You</h1>
+        <div class="description">
+          <p style="margin: 0 0 12px;">With SNAP benefits being reduced due to the government shutdown, now is more important than ever to have the community support its residents struggling to find their next meal. Whether you are looking for options for yourself or finding ways to help provide food for the community, below is a directory that can help us help each other.</p>
+          <p style="margin: 0 0 8px;">Want to add a new location, <a href="https://docs.google.com/forms/d/1LFElVtr2WXfjlMxdD4zDy2_aT28P7zs7nYfBYqTsUuo/edit" target="_blank">click here</a>.</p>
+          <p style="margin: 0 0 8px;">Want to update the status of a location, please fill out <a href="https://docs.google.com/forms/d/1IJKxSWGSmEg-HV_2ZXyvFh1Zc26YzJ6HSk7u2S5QgyA/edit" target="_blank">this form</a>.</p>
+          <p style="margin: 0; font-size: 14px; color: var(--muted); font-style: italic;">Please note that new locations or updates to existing locations will be vetted before being added to ensure accuracy, please be patient while this is being added.</p>
+        </div>
+      </div>
+      <span class="badge" id="status" style="position: absolute; top: 16px; right: 16px;">Loading…</span>
+    </header>
+    <aside id="sidebar">
+      <div class="control" style="position: relative; margin-bottom: 50px;">
+        <input id="address" type="search" placeholder="Jump to address or ZIP" />
+        <button id="go">Go</button>
+        <button id="locate">📍</button>
+        <div class="location-dropdown" id="locationDropdown">
+          <div class="location-option" id="useCurrentLocation">Use current location</div>
+        </div>
+      </div>
+
+      <div class="legend" id="typeFilters"></div>
+      <div class="control">
+        <select id="stateFilter"><option value="">All States</option></select>
+      </div>
+      <div class="control">
+        <label style="font-size: 13px; color: var(--muted); margin-right: 8px;">Days:</label>
+        <div id="dayFilters" style="flex: 1; display: flex; flex-wrap: wrap; gap: 6px;"></div>
+      </div>
+      <div class="stat"><span>Visible locations</span><strong id="count">0</strong></div>
+      <p class="hint">Connect any published CSV/Google Sheet with columns: <code>name, type, address, city, state, zip, lat, lng, website, hours, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday, notes</code>. Coordinates are recommended to be pre‑geocoded for speed & reliability.</p>
+      <div class="src">Data source: <span id="dataSource">(set in code)</span></div>
+      <div class="foot">Tip: type an address or use the 📍 button to jump near you. Filters update live. Clusters speed up large datasets.</div>
+    </aside>
+    <main id="map"></main>
+  </div>
+
+  <!-- Libraries -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <script>
+    // 👉 CSV data source - Connected to Google Sheet
+    const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTa-wT3bSkIfkA0DlVmN8uBaUeQIqhv-1QIyUC-grOfM7gQ8am2JHCWzQYnnQ3XM-HopyZOVsZSx4-A/pub?output=csv";
+
+    const EMBEDDED_CSV = `name,type,address,city,state,zip,lat,lng,website,hours,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday,notes
+Cooper Park Houses,Community Fridge,76 Kingsland Ave,Brooklyn,NY,11211,40.7147,-73.9422,https://northbrooklynmutualaid.org/Community-Fridges,,X,X,X,X,X,X,X,
+The Lot Radio,Community Fridge,17 Nassau Ave,Brooklyn,NY,11222,40.7224,-73.9528,https://northbrooklynmutualaid.org/Community-Fridges,,X,X,X,X,X,X,X,
+Greenpoint Library,Community Fridge,107 Norman Ave,Brooklyn,NY,11222,40.7261,-73.9506,https://northbrooklynmutualaid.org/Community-Fridges,,X,X,X,X,X,X,X,
+Greenpoint Hunger Program,Takeaway Meal,136 Milton St,Brooklyn,NY,11222,40.7256,-73.9495,https://northbrooklynmutualaid.org/,Tues 6:00–7:00pm,,X,,,,,,
+Greenpoint Community Kitchen,Takeaway Meal,155 Milton St,Brooklyn,NY,11222,40.7262,-73.9493,https://northbrooklynmutualaid.org/,Sat 11:00am,,,,,,,X,,
+North Brooklyn Angels Truck,Takeaway Meal,862 Manhattan Ave,Brooklyn,NY,11222,40.7285,-73.9535,https://northbrooklynmutualaid.org/,"Mon 12:15pm, Thu 12:30pm",X,,,X,,,,
+North Brooklyn Angels Truck,Takeaway Meal,195 Maujer St,Brooklyn,NY,11206,40.7091,-73.9441,https://northbrooklynmutualaid.org/,"Mon & Wed 12:30pm",X,,X,,,,,
+North Brooklyn Angels Truck,Takeaway Meal,240 Division Ave,Brooklyn,NY,11211,40.7068,-73.9587,https://northbrooklynmutualaid.org/,Tues 12:30pm,,X,,,,,,
+North Brooklyn Angels Truck,Takeaway Meal,Jackson St & Debevoise Ave,Brooklyn,NY,11211,40.7119,-73.9509,https://northbrooklynmutualaid.org/,Thu 12:30pm,,,,X,,,,
+North Brooklyn Angels Truck,Takeaway Meal,138 Montrose Ave,Brooklyn,NY,11206,40.7075,-73.9392,https://northbrooklynmutualaid.org/,Fri 12:30pm,,,,,X,,,
+North Brooklyn Angels Truck,Takeaway Meal,81 Franklin St,Brooklyn,NY,11222,40.7303,-73.9584,https://northbrooklynmutualaid.org/,Sun 10:00am,,,,,,,X,
+North Brooklyn Angels Kitchen,Takeaway Meal,1 Havemeyer St,Brooklyn,NY,11211,40.7151,-73.9577,https://northbrooklynmutualaid.org/,Mon–Fri 11:45am,X,X,X,X,X,,,
+Los Sures Food Pantry,Pantry,145 S 3rd St,Brooklyn,NY,11211,40.7125,-73.962,https://northbrooklynmutualaid.org/,Tues 9:00am–12:00pm,,X,,,,,,
+Los Sures Food Pantry,Pantry,357 S 3rd St,Brooklyn,NY,11211,40.7096,-73.9568,https://northbrooklynmutualaid.org/,Wed 9:00–11:00am,,,X,,,,,
+Iglesia de Dios de la Profecia,Pantry,333 Union Ave,Brooklyn,NY,11211,40.7106,-73.9501,https://northbrooklynmutualaid.org/,Wed 10:00am–12:30pm,,,X,,,,,
+Union Pool Food Pantry,Pantry,484 Union Ave,Brooklyn,NY,11211,40.7124,-73.9494,https://northbrooklynmutualaid.org/,Wed 9:30–11:30am,,,X,,,,,
+Greenpoint Hunger Program,Pantry,136 Milton St,Brooklyn,NY,11222,40.7352,-73.9556,https://northbrooklynmutualaid.org/,Thu 4:00–7:00pm,,,,X,,,,
+Food for Brooklyn,Pantry,55 Sutton St,Brooklyn,NY,11222,40.7322,-73.9488,https://northbrooklynmutualaid.org/,1st & 3rd Sat 9:00–10:00am,,,,,,,X,`;
+
+    // Basic map setup
+    const map = L.map('map', { worldCopyJump: true }).setView([39.5, -98.35], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    const cluster = L.markerClusterGroup({
+      chunkedLoading: true,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+    });
+
+    const allMarkers = [];
+    const states = new Set();
+    const types = new Set();
+    const days = new Set(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']);
+
+    const elStatus = document.getElementById('status');
+    const elCount  = document.getElementById('count');
+    const elState  = document.getElementById('stateFilter');
+    const elTypeWrap = document.getElementById('typeFilters');
+    const elDayWrap = document.getElementById('dayFilters');
+    const elDataSource = document.getElementById('dataSource');
+    const elAddress = document.getElementById('address');
+    const elGo = document.getElementById('go');
+    const elLocate = document.getElementById('locate');
+    const elLocationDropdown = document.getElementById('locationDropdown');
+    const elUseCurrentLocation = document.getElementById('useCurrentLocation');
+
+    function setStatus(txt) { elStatus.textContent = txt; }
+
+    function makePopup(row) {
+      const safe = (v) => (v ?? '').toString().trim();
+      const w = safe(row.website);
+      const site = w ? `<div class="row">Website: <a href="${w.startsWith('http') ? w : 'https://' + w}" target="_blank" rel="noopener">Link</a></div>` : '';
+      const hours = safe(row.hours) ? `<div class="row">Hours: ${safe(row.hours)}</div>` : '';
+      const notes = safe(row.notes) ? `<div class="row">Notes: ${safe(row.notes)}</div>` : '';
+      const addr = [row.address, row.city, row.state, row.zip].filter(Boolean).join(', ');
+      
+      return `
+        <div class="popup">
+          <h3>${safe(row.name)}</h3>
+          <div class="row">${addr}</div>
+          <div class="row">Type: ${safe(row.type) || '—'}</div>
+          ${hours}${site}${notes}
+        </div>`;
+    }
+
+    function normalizeState(s) { return (s || '').toString().trim().toUpperCase(); }
+
+    function addMarker(row) {
+      const lat = parseFloat(row.lat), lng = parseFloat(row.lng);
+      if (!isFinite(lat) || !isFinite(lng)) return;
+      const marker = L.marker([lat, lng]);
+      marker.row = row;
+      marker.bindPopup(makePopup(row));
+      allMarkers.push(marker);
+      cluster.addLayer(marker);
+      states.add(normalizeState(row.state));
+      if (row.type) types.add(row.type.trim());
+    }
+
+    function rebuildStateDropdown() {
+      const frag = document.createDocumentFragment();
+      const opts = Array.from(states).filter(Boolean).sort();
+      for (const s of opts) {
+        const o = document.createElement('option');
+        o.value = s; o.textContent = s; frag.appendChild(o);
+      }
+      elState.appendChild(frag);
+    }
+
+    function rebuildTypeChips() {
+      const frag = document.createDocumentFragment();
+      for (const t of Array.from(types).filter(Boolean).sort()) {
+        const chip = document.createElement('button');
+        chip.className = 'tag';
+        chip.dataset.value = t;
+        chip.textContent = t;
+        chip.addEventListener('click', () => { chip.classList.toggle('active'); applyFilters(); });
+        frag.appendChild(chip);
+      }
+      elTypeWrap.appendChild(frag);
+    }
+
+    function rebuildDayChips() {
+      const dayOrder = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const frag = document.createDocumentFragment();
+      for (const d of dayOrder) {
+        const chip = document.createElement('button');
+        chip.className = 'tag';
+        chip.dataset.value = d;
+        chip.textContent = d.slice(0, 3);
+        chip.title = d;
+        chip.addEventListener('click', () => { chip.classList.toggle('active'); applyFilters(); });
+        frag.appendChild(chip);
+      }
+      elDayWrap.appendChild(frag);
+    }
+
+    function visibleTypeSet() {
+      const active = Array.from(elTypeWrap.querySelectorAll('.tag.active')).map(b => b.dataset.value);
+      return new Set(active);
+    }
+
+    function visibleDaySet() {
+      const active = Array.from(elDayWrap.querySelectorAll('.tag.active')).map(b => b.dataset.value);
+      return new Set(active);
+    }
+
+    function applyFilters() {
+      const s = normalizeState(elState.value);
+      const typeSet = visibleTypeSet();
+      const daySet = visibleDaySet();
+
+      cluster.clearLayers();
+      let visible = 0;
+      for (const m of allMarkers) {
+        const r = m.row;
+        let ok = true;
+        if (s) ok = ok && normalizeState(r.state) === s;
+        if (typeSet.size) ok = ok && typeSet.has((r.type||'').toString().trim());
+        
+        // Check if location is available on selected days
+        if (daySet.size) {
+          let hasMatchingDay = false;
+          for (const day of daySet) {
+            if ((r[day] || '').toString().trim() === 'X') {
+              hasMatchingDay = true;
+              break;
+            }
+          }
+          ok = ok && hasMatchingDay;
+        }
+        
+        if (ok) { cluster.addLayer(m); visible++; }
+      }
+      elCount.textContent = visible.toLocaleString();
+    }
+
+    elState.addEventListener('change', applyFilters);
+
+    async function geocode(q) {
+      if (!q) return null;
+      const isZipCode = /^\d{5}$/.test(q.trim());
+      const query = isZipCode ? `${q}, USA` : q;
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=us`;
+      try {
+        const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
+        const js = await res.json();
+        return js?.[0] ? { lat: +js[0].lat, lon: +js[0].lon, bbox: js[0].boundingbox } : null;
+      } catch (e) { console.warn('geocode failed', e); return null; }
+    }
+
+    elGo.addEventListener('click', async () => {
+      elLocationDropdown.style.display = 'none';
+      setStatus('Geocoding…');
+      const q = elAddress.value.trim();
+      const r = await geocode(q);
+      if (r) { map.setView([r.lat, r.lon], 14); setStatus('Ready'); } else { setStatus('Address not found'); }
+    });
+    elAddress.addEventListener('keydown', (e) => { if (e.key === 'Enter') elGo.click(); });
+
+    elAddress.addEventListener('focus', () => {
+      elLocationDropdown.style.display = 'block';
+    });
+
+    elAddress.addEventListener('blur', (e) => {
+      setTimeout(() => {
+        elLocationDropdown.style.display = 'none';
+      }, 200);
+    });
+
+    elUseCurrentLocation.addEventListener('click', () => {
+      elLocationDropdown.style.display = 'none';
+      if (!navigator.geolocation) return alert('Geolocation not supported');
+      setStatus('Locating…');
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const { latitude, longitude } = pos.coords;
+        map.setView([latitude, longitude], 14);
+        setStatus('Ready');
+        elAddress.value = '';
+      }, () => setStatus('Location blocked'));
+    });
+
+    elLocate.addEventListener('click', () => {
+      if (!navigator.geolocation) return alert('Geolocation not supported');
+      setStatus('Locating…');
+      navigator.geolocation.getCurrentPosition((pos) => {
+        const { latitude, longitude } = pos.coords;
+        map.setView([latitude, longitude], 14);
+        setStatus('Ready');
+      }, () => setStatus('Location blocked'));
+    });
+
+    function loadCSV(url) {
+      return new Promise((resolve, reject) => {
+        Papa.parse(url, { download: true, header: true, skipEmptyLines: true, complete: (r) => resolve(r.data), error: reject });
+      });
+    }
+
+    async function init() {
+      setStatus('Loading data…');
+
+      let sourceLabel = '';
+      try {
+        let rows;
+        if (CSV_URL) {
+          rows = await loadCSV(CSV_URL);
+          sourceLabel = CSV_URL;
+        } else {
+          const parsed = Papa.parse(EMBEDDED_CSV, { header: true, skipEmptyLines: true });
+          rows = parsed.data || [];
+          sourceLabel = 'Embedded preview CSV';
+        }
+
+        rows.forEach(addMarker);
+      } catch (e) {
+        console.error(e);
+        setStatus('Failed to load CSV');
+        return;
+      }
+
+      map.addLayer(cluster);
+      rebuildStateDropdown();
+      rebuildTypeChips();
+      rebuildDayChips();
+      applyFilters();
+
+      setStatus('Ready');
+
+      if (allMarkers.length) {
+        try { map.fitBounds(cluster.getBounds(), { padding: [30,30] }); } catch {}
+      } else {
+        map.setView([40.72, -73.95], 12);
+      }
+
+      elDataSource.textContent = sourceLabel;
+    }
+
+    init();
+  </script>
+</body>
+</html>
