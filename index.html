@@ -11,7 +11,7 @@
   <style>
     :root { --bg:#0b1020; --panel:#11172a; --muted:#9aa4b2; --text:#f3f6fb; --accent:#4f8cff; }
     html, body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text); background: var(--bg); }
-    .app { display: grid; grid-template-columns: 360px 1fr; grid-template-rows: auto auto 600px; }
+    .app { display: grid; grid-template-columns: 1fr; grid-template-rows: auto auto 600px; }
     header { grid-column: 1 / -1; display:flex; align-items:center; justify-content:center; gap:12px; padding: 24px 16px; background: linear-gradient(180deg, rgba(79,140,255,.12), transparent); border-bottom: 1px solid rgba(255,255,255,.06); position: relative; }
     header h1 { font-size: 28px; margin: 0; letter-spacing: .2px; text-align: center; }
     header .description { font-size: 16px; color: var(--text); line-height: 1.5; max-width: 900px; margin: 16px auto 0; text-align: left; }
@@ -81,9 +81,6 @@
         <div id="dayFilters" style="flex: 1; display: flex; flex-wrap: wrap; gap: 6px;"></div>
       </div>
       <div class="stat"><span>Visible locations</span><strong id="count">0</strong></div>
-      <p class="hint">Connect any published CSV/Google Sheet with columns: <code>name, type, address, city, state, zip, lat, lng, website, hours, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday, notes</code>. Coordinates are recommended to be pre‑geocoded for speed & reliability.</p>
-      <div class="src">Data source: <span id="dataSource">(set in code)</span></div>
-      <div class="foot">Tip: type an address or use the 📍 button to jump near you. Filters update live. Clusters speed up large datasets.</div>
     </aside>
     <main id="map"></main>
   </div>
