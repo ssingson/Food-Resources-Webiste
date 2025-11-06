@@ -18,8 +18,8 @@
     header .description a { color: var(--accent); text-decoration: none; }
     header .description a:hover { text-decoration: underline; }
     header .badge { font-size: 12px; color: var(--muted); }
-    #sidebar { background: var(--panel); border-right: 1px solid rgba(255,255,255,.06); padding: 14px; overflow: auto; grid-row: 2; }
-    #map { width: 100%; height: 600px; grid-column: 1 / -1; grid-row: 3; }
+    #sidebar { background: var(--panel); border-bottom: 1px solid rgba(255,255,255,.06); padding: 14px; overflow: auto; grid-row: 2; }
+    #map { width: 100%; height: 600px; grid-column: 1; grid-row: 3; }
     .control { display:flex; align-items:center; gap:8px; margin: 8px 0; }
     .control input, .control select, .control button { padding: 10px 12px; border: 1px solid rgba(255,255,255,.12); background: #0d1426; color: var(--text); border-radius: 10px; outline: none; }
     .control input{ flex:1; }
@@ -80,7 +80,6 @@
         <label style="font-size: 13px; color: var(--muted); margin-right: 8px;">Days:</label>
         <div id="dayFilters" style="flex: 1; display: flex; flex-wrap: wrap; gap: 6px;"></div>
       </div>
-      <div class="stat"><span>Visible locations</span><strong id="count">0</strong></div>
     </aside>
     <main id="map"></main>
   </div>
@@ -93,26 +92,6 @@
   <script>
     // 👉 CSV data source - Connected to Google Sheet
     const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTa-wT3bSkIfkA0DlVmN8uBaUeQIqhv-1QIyUC-grOfM7gQ8am2JHCWzQYnnQ3XM-HopyZOVsZSx4-A/pub?output=csv";
-
-    const EMBEDDED_CSV = `name,type,address,city,state,zip,lat,lng,website,hours,Monday,Tuesday,Wednesday,Thursday,Friday,Saturday,Sunday,notes
-Cooper Park Houses,Community Fridge,76 Kingsland Ave,Brooklyn,NY,11211,40.7147,-73.9422,https://northbrooklynmutualaid.org/Community-Fridges,,X,X,X,X,X,X,X,
-The Lot Radio,Community Fridge,17 Nassau Ave,Brooklyn,NY,11222,40.7224,-73.9528,https://northbrooklynmutualaid.org/Community-Fridges,,X,X,X,X,X,X,X,
-Greenpoint Library,Community Fridge,107 Norman Ave,Brooklyn,NY,11222,40.7261,-73.9506,https://northbrooklynmutualaid.org/Community-Fridges,,X,X,X,X,X,X,X,
-Greenpoint Hunger Program,Takeaway Meal,136 Milton St,Brooklyn,NY,11222,40.7256,-73.9495,https://northbrooklynmutualaid.org/,Tues 6:00–7:00pm,,X,,,,,,
-Greenpoint Community Kitchen,Takeaway Meal,155 Milton St,Brooklyn,NY,11222,40.7262,-73.9493,https://northbrooklynmutualaid.org/,Sat 11:00am,,,,,,,X,,
-North Brooklyn Angels Truck,Takeaway Meal,862 Manhattan Ave,Brooklyn,NY,11222,40.7285,-73.9535,https://northbrooklynmutualaid.org/,"Mon 12:15pm, Thu 12:30pm",X,,,X,,,,
-North Brooklyn Angels Truck,Takeaway Meal,195 Maujer St,Brooklyn,NY,11206,40.7091,-73.9441,https://northbrooklynmutualaid.org/,"Mon & Wed 12:30pm",X,,X,,,,,
-North Brooklyn Angels Truck,Takeaway Meal,240 Division Ave,Brooklyn,NY,11211,40.7068,-73.9587,https://northbrooklynmutualaid.org/,Tues 12:30pm,,X,,,,,,
-North Brooklyn Angels Truck,Takeaway Meal,Jackson St & Debevoise Ave,Brooklyn,NY,11211,40.7119,-73.9509,https://northbrooklynmutualaid.org/,Thu 12:30pm,,,,X,,,,
-North Brooklyn Angels Truck,Takeaway Meal,138 Montrose Ave,Brooklyn,NY,11206,40.7075,-73.9392,https://northbrooklynmutualaid.org/,Fri 12:30pm,,,,,X,,,
-North Brooklyn Angels Truck,Takeaway Meal,81 Franklin St,Brooklyn,NY,11222,40.7303,-73.9584,https://northbrooklynmutualaid.org/,Sun 10:00am,,,,,,,X,
-North Brooklyn Angels Kitchen,Takeaway Meal,1 Havemeyer St,Brooklyn,NY,11211,40.7151,-73.9577,https://northbrooklynmutualaid.org/,Mon–Fri 11:45am,X,X,X,X,X,,,
-Los Sures Food Pantry,Pantry,145 S 3rd St,Brooklyn,NY,11211,40.7125,-73.962,https://northbrooklynmutualaid.org/,Tues 9:00am–12:00pm,,X,,,,,,
-Los Sures Food Pantry,Pantry,357 S 3rd St,Brooklyn,NY,11211,40.7096,-73.9568,https://northbrooklynmutualaid.org/,Wed 9:00–11:00am,,,X,,,,,
-Iglesia de Dios de la Profecia,Pantry,333 Union Ave,Brooklyn,NY,11211,40.7106,-73.9501,https://northbrooklynmutualaid.org/,Wed 10:00am–12:30pm,,,X,,,,,
-Union Pool Food Pantry,Pantry,484 Union Ave,Brooklyn,NY,11211,40.7124,-73.9494,https://northbrooklynmutualaid.org/,Wed 9:30–11:30am,,,X,,,,,
-Greenpoint Hunger Program,Pantry,136 Milton St,Brooklyn,NY,11222,40.7352,-73.9556,https://northbrooklynmutualaid.org/,Thu 4:00–7:00pm,,,,X,,,,
-Food for Brooklyn,Pantry,55 Sutton St,Brooklyn,NY,11222,40.7322,-73.9488,https://northbrooklynmutualaid.org/,1st & 3rd Sat 9:00–10:00am,,,,,,,X,`;
 
     // Basic map setup
     const map = L.map('map', { worldCopyJump: true }).setView([39.5, -98.35], 5);
@@ -259,8 +238,13 @@ Food for Brooklyn,Pantry,55 Sutton St,Brooklyn,NY,11222,40.7322,-73.9488,https:/
 
     async function geocode(q) {
       if (!q) return null;
-      const isZipCode = /^\d{5}$/.test(q.trim());
-      const query = isZipCode ? `${q}, USA` : q;
+      
+      // Remove apartment/unit info (e.g., "Apt 5", "Unit 2B", "#3C", etc.)
+      let cleanQuery = q.trim();
+      cleanQuery = cleanQuery.replace(/,?\s*(apt|apartment|unit|suite|ste|#)\s*\.?\s*[a-z0-9-]+/gi, '');
+      
+      const isZipCode = /^\d{5}$/.test(cleanQuery.trim());
+      const query = isZipCode ? `${cleanQuery}, USA` : cleanQuery;
       const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=us`;
       try {
         const res = await fetch(url, { headers: { 'Accept-Language': 'en' } });
@@ -321,17 +305,11 @@ Food for Brooklyn,Pantry,55 Sutton St,Brooklyn,NY,11222,40.7322,-73.9488,https:/
 
       let sourceLabel = '';
       try {
-        let rows;
-        if (CSV_URL) {
-          rows = await loadCSV(CSV_URL);
-          sourceLabel = CSV_URL;
-        } else {
-          const parsed = Papa.parse(EMBEDDED_CSV, { header: true, skipEmptyLines: true });
-          rows = parsed.data || [];
-          sourceLabel = 'Embedded preview CSV';
-        }
-
-        rows.forEach(addMarker);
+          const rows = await loadCSV(CSV_URL);
+          const sourceLabel = CSV_URL;
+          rows.forEach(addMarker);
+        } catch (error) {
+          console.error('Error loading CSV:', error);
       } catch (e) {
         console.error(e);
         setStatus('Failed to load CSV');
